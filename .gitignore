@@ -1,0 +1,7 @@
+/Assets/**
+/snapshots/**
+/build/**
+cspect.log
+*.nex
+/Work/**
+/data/snapshots
