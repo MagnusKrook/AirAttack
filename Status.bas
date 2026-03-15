@@ -28,11 +28,11 @@ $10, $10, $28, $FE, $FE, $10, $10, $7C }
 POKE Uinteger 23675, @UDGs
 
 sub PrintScore(score as uinteger)
-    print at 0,0;"SC: "; NumToString(score)
+    print at 0,0;"Score: "; NumToString(score)
 end sub
 
 sub PrintHighScore(hiScore as uinteger)
-    print at 0,12;"HI: "; NumToString(hiScore)
+    print at 0,14;"High: "; NumToString(hiScore)
 end sub
 
 ' Convert a uinteger value to a string with leading zeroes

@@ -92,7 +92,7 @@
 #define NumberOfTankShells 4
 #define NumberOfLauncherBullets 4
 
-#define TankTileId 46
+#define GroundUnitTileId 46
 #define LauncherTileId 74
 #define BuildingTileId 69
 #define NextLevelTileId 67
@@ -166,8 +166,8 @@ dim EnemyJetMissilePosY as integer
 dim EnemyMissileAltitude as integer
 dim EnemyJetMissileActive as ubyte
 
-dim targetColumn as integer = 0
-dim targetRow as integer = 0
+dim TargetColumn as integer
+dim TargetRow as integer
 dim updateColumn as integer
 dim updateRow as integer
 dim ScrollPosX as integer = 0
@@ -244,12 +244,12 @@ LoadSDBank("Sprites.spr",0,0,0,40) ' Sprites (16 KB)
 ' Background tiles. Size: 24 KB
 LoadSDBank("Tilemap1.spr",0,0,0,30)
 LoadSDBank("Tilemap2.spr",0,0,0,33)
-'LoadSDBank("Tiles3.spr",0,0,0,36) ' Not implemented.
+'LoadSDBank("Tilemap3.spr",0,0,0,36) ' Not implemented.
 
 ' Background tilemaps. Size: 16 KB
 LoadSDBank("Tilemap1.nxm",0,0,0,42)
 LoadSDBank("Tilemap2.nxm",0,0,0,44)
-'LoadSDBank("Tiles3.nxm",0,0,0,46) ' Not implemented.
+'LoadSDBank("Tilemap3.nxm",0,0,0,46) ' Not implemented.
 
 ' Palettes. Size: 512 B
 LoadSDBank("Palette1.pal",0,0,0,50)
@@ -281,7 +281,7 @@ NextReg(GLOBAL_TRANSPARENCY_NR_14,231)
 
 ' Setup ULA screen with at transparent background
 border 0
-paper 3
+paper 0
 bright 1
 cls
 
@@ -1081,12 +1081,14 @@ sub ScrollBackground(planePosX as uinteger, mapBank as ubyte, TileSpritesBank as
 
 	ScrollLayer(ScrollPosX, ScrollPosY)
 
-	' Update ground units (tanks). Note that active tanks (status = 1) are displayed from the tile map,
-	' but when they have been hit (status > 1), a sprite is painted on the background.
+	' Update ground units. Note that active units (status = 1) are displayed from the tile map,
+	' but when they have been hit (status > 1), an explosion sprite cycle is painted on the background.
 	for i = 0 to NumberOfGroundUnits - 1
 		if GroundUnitStatus(i) > 0 then
+			' Move ground units with background.
 			GroundUnitPosX(i) = GroundUnitPosX(i) - 1
 			GroundUnitPosY(i) = GroundUnitPosY(i) + 1
+			' If status > 1 then the ground unit has been hit and needs to have an explosion animation.
 			if GroundUnitStatus(i) = 2
 				UpdateSprite(GroundUnitPosX(i), GroundUnitPosY(i), GroundUnitSprite + i, GroundUnitDamagedImage , 0, 0)
 				GroundUnitStatus(i) = GroundUnitStatus(i) + 1
@@ -1111,11 +1113,13 @@ sub ScrollBackground(planePosX as uinteger, mapBank as ubyte, TileSpritesBank as
 	next i
 
 	' Update launchers. Note that active launchers (status = 1) are displayed from the tile map,
-	' but when they have been hit (status > 1), a sprite is painted on the background.
+	' but when they have been hit (status > 1), an explosion sprite cycle is painted on the background.
 	for i = 0 to NumberOfLaunchers - 1
 		if LauncherStatus(i) > 0 then
+			' Move launcger with background.
 			LauncherPosX(i) = LauncherPosX(i) - 1
 			LauncherPosY(i) = LauncherPosY(i) + 1
+			' If status > 1 then the launcher has been hit and needs to have an explosion animation.
 			if LauncherStatus(i) = 2
 				UpdateSprite(LauncherPosX(i), LauncherPosY(i), LauncherSprite + i, LauncherDamagedImage , 0, 0)
 				LauncherStatus(i) = LauncherStatus(i) + 1
@@ -1144,7 +1148,7 @@ sub ScrollBackground(planePosX as uinteger, mapBank as ubyte, TileSpritesBank as
 		' Move building with background.
 			BuildingPosX = BuildingPosX - 1
 			BuildingPosY = BuildingPosY + 1
-		' If building has been hit enter damage animation phase.
+		' If status > 1 then the building has been hit and needs to have an explosion animation.
 		if BuildingStatus >= 2 and BuildingStatus <= 4 then
 			UpdateSprite(BuildingPosX + 3, BuildingPosY + 6, BuildingSprite, DamagedBuildingImage + 1, 0, 0)
 			UpdateSprite(BuildingPosX - 5, BuildingPosY + 2, BuildingSprite + 1, DamagedBuildingImage, 0, 0)
@@ -1197,29 +1201,38 @@ sub ScrollBackground(planePosX as uinteger, mapBank as ubyte, TileSpritesBank as
 	end if
 	
 	' After scrolling 16 pixels, it is time to load a new row and a new column of tiles.
-	PixelScroll = ScrollPosX mod 16
+	PixelScroll = ScrollPosY mod 16
 	if PixelScroll = 0 then
 
+		' WindowPosColumn and WindowPosRow determine where in the tilemap the visible window is.
+		' Move the visible window one tile to the right and wrap around if necessary.
 		WindowPosColumn = WindowPosColumn + 1
 		if WindowPosColumn > MapWidth - 1 then WindowPosColumn = 0
 
-		FetchColumn(mapBank, TileSpritesBank)   
+		' Fetch a new column of tiles.
+		FetchColumn(mapBank, TileSpritesBank)
 
-		' Targetcolumn is the column where new data is pushed.
-		' Even if it is always column 15 on the display,
-		' it is the scrolled image column in column 15 we are
-		' after here.
-		targetColumn = targetColumn + 1
-		if targetColumn > 15 then targetColumn = 0
+		' The TargetColumn variable specifies where on the scrolled screen the
+		' rightmost column is located currently. For the first update it will be
+		' column 0 because the screen has been scrolled 16 pixels to the left and
+		' column 0 has been wrapped around to right edge of the screen.
 
-		targetRow = targetRow - 1
-		if targetRow = -1 then targetRow = 11
-
+		' Now, increase the target column for the next time we get here.
+		' and also for the row update which will start on column 1 for the first update.
+		TargetColumn = TargetColumn + 1
+		if TargetColumn > 15 then TargetColumn = 0
+		
+		' Move the visible window one tile upwards and wrap around if necessary.
 		WindowPosRow = WindowPosRow - 1
-		'if WindowPosRow >= 128 then WindowPosRow = 47 ' Checks if WindowPosRow < 0
-		if WindowPosRow < 0 then WindowPosRow = MapHeight - 1 ' Checks if WindowPosRow < 0
+		if WindowPosRow < 0 then WindowPosRow = MapHeight - 1
+		
+		' Decrease the target row.
+		TargetRow = TargetRow - 1
+		if TargetRow = -1 then TargetRow = 11
+		
+		' Fetch a row of tiles for the uppermost row on the screen.
+		FetchRow(mapBank, TileSpritesBank)
 
-		FetchRow(mapBank, TileSpritesBank)   
 	end if
 end sub
 
@@ -1281,24 +1294,37 @@ sub FetchColumn(mapBank as ubyte, TileSpritesBank as ubyte)
     dim tileColumn as uinteger
 	dim tileRow as uinteger
 
+	' Find the correct column in the tilemap (with wrap around).
     if WindowPosColumn + 15 < MapWidth then
         tileColumn = WindowPosColumn + 15
     else
         tileColumn = WindowPosColumn + 15 - MapWidth
     end if
 
-	' Map MMU0 to tile map bank
+	' Map MMU0 to tile map bank.
 	NextRegA($50,mapBank)
+
+	' Loop through 12 rows.
     for rowCount = 0 to 11
-		if WindowPosRow + rowCount < MapHeight then tileRow = WindowPosRow + rowCount else tileRow = WindowPosRow + rowCount - MapHeight
-		updateRow = targetRow + rowCount
+
+		' Find the correct row in the tilemap (with wrap around).
+		if WindowPosRow + rowCount < MapHeight then
+			tileRow = WindowPosRow + rowCount
+			else
+				tileRow = WindowPosRow + rowCount - MapHeight
+			end if
+
+		' Find the screen row to update (with wrap around)
+		updateRow = TargetRow + rowCount
 		if updateRow > 11 then updateRow = updateRow - 12
 
+		' Place the tile.
         tileAddress = tileColumn + tileRow * MapWidth
 		tile = peek(tileAddress)
+		DoTileBank16(TargetColumn, updateRow, peek(tileAddress), TileSpritesBank)
 
-		' Initialize ground target sprite
-		if tile = TankTileId then 
+		' Initialize ground targets.
+		if tile = GroundUnitTileId then 
 			InitializeGroundUnit(272, (rowCount + 3) * 16)
 		end if
 
@@ -1310,9 +1336,8 @@ sub FetchColumn(mapBank as ubyte, TileSpritesBank as ubyte)
 			InitializeLauncher(272, (rowCount + 3) * 16)
 		end if
 
-        DoTileBank16(targetColumn, updateRow, peek(tileAddress), TileSpritesBank)
     next
-	' Map MMU0 to bank back to ROM.
+	' Map MMU0 back to ROM.
  	NextReg($50,$FF)
 end sub
 
@@ -1323,44 +1348,45 @@ sub FetchRow(mapBank as ubyte, TileSpritesBank as ubyte)
     dim tileRow as uinteger
 	dim tileColumn as uinteger
 
+	' Find the correct row in the tilemap (with wrap around).
     if WindowPosRow >= 0 then
         tileRow = WindowPosRow
-    Else
+    else
 		tileRow = MapHeight - 1 - WindowPosRow
     end if
 
 	' Map MMU0 to the tile map bank.
 	NextRegA($50,mapBank)
 
-    for colCount = 0 to 15
-		if WindowPosColumn + colCount < MapWidth then tileColumn = WindowPosColumn + colCount else tileColumn = WindowPosColumn + colCount - MapWidth
+    ' Loop through 16 columns.
+	for colCount = 0 to 15
 
-		updateColumn = targetColumn + colCount
+		' Find the correct column in the tilemap (with wrap around).
+		if WindowPosColumn + colCount < MapWidth then
+			tileColumn = WindowPosColumn + colCount
+		else
+			tileColumn = WindowPosColumn + colCount - MapWidth
+		end if
+
+		' Find the screen column to update (with wrap around)
+		updateColumn = TargetColumn + colCount
 		if updateColumn > 15 then updateColumn = updateColumn - 16
 
+		' Place the tile.
 		tileAddress = tileColumn + tileRow * MapWidth
 		tile = peek(tileAddress)
-        DoTileBank16(updateColumn, targetRow, tile, TileSpritesBank)
+        DoTileBank16(updateColumn, TargetRow, tile, TileSpritesBank)
 
-		' Initialize ground target sprite
-		if tile = TankTileId then 
-			InitializeGroundUnit((colCount + 2) * 16, 32)
-		end if
+		' Initialize ground targets.
+		if tile = GroundUnitTileId then InitializeGroundUnit((colCount + 2) * 16, 32)
+		if tile = BuildingTileId then InitializeBuilding((colCount + 2) * 16, 32)
+		if tile = LauncherTileId then InitializeLauncher((colCount + 2) * 16, 32)
 
-		if tile = BuildingTileId then 
-			InitializeBuilding((colCount + 2) * 16, 32)
-		end if
-
-		if tile = LauncherTileId then
-			InitializeLauncher((colCount + 2) * 16, 32)
-		end if
-
-		if tile = NextLevelTileId then
-			NextLevel = true
-		end if
+		' When a special tile is encountered, we hav reached the next level.
+		if tile = NextLevelTileId then NextLevel = true
     next
 
-	' Map MMU0 to bank back to ROM.
+	' Map MMU0 back to ROM.
 	NextReg($50,$FF)
 end sub
 
@@ -1396,8 +1422,8 @@ end sub
 
 ' Reset background to initial values
 sub InitialValues()
-	targetColumn = 0
-	targetRow = 0
+	TargetColumn = 0
+	TargetRow = 0
 	updateColumn = 0
 	updateRow = 0
 	ScrollPosX = 0
@@ -1406,12 +1432,12 @@ sub InitialValues()
 	WindowPosRow = 0
 	PixelScroll = 0
 	for i = 0 to NumberOfGroundUnits - 1
-			GroundUnitStatus(i) = 0
-			RemoveSprite(GroundUnitSprite + i, 0)
+		GroundUnitStatus(i) = 0
+		RemoveSprite(GroundUnitSprite + i, 0)
 	next i
 	for i = 0 to NumberOfLaunchers - 1
-			LauncherStatus(i) = 0
-			RemoveSprite(LauncherSprite + i, 0)
+		LauncherStatus(i) = 0
+		RemoveSprite(LauncherSprite + i, 0)
 	next i
 	BuildingStatus = 0
 	RemoveSprite(BuildingSprite, 0)
