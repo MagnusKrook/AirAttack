@@ -211,7 +211,6 @@ dim keyPress as ubyte
 dim Score as uinteger
 dim Lives as ubyte
 dim HighScore as uinteger = 0
-dim LevelCounter as uinteger
 dim Level as ubyte = 1
 dim NextLevel as ubyte = false
 
@@ -334,7 +333,7 @@ do
 	UpdatePlayerBullets()
 	UpdateBomb()
 
-	if LevelCounter > 200 and EnemyPlaneActive = false
+	if EnemyPlaneActive = false
 		TriggerEnemy()
 	end if
 
@@ -820,22 +819,22 @@ end sub
 sub CheckEnemyOrdnanceHit(index as ubyte)
 	if EnemyPlaneBulletActive(index) then
 		if CheckCollision(EnemyPlaneBulletPosX(index), EnemyPlaneBulletPosY(index), EnemyPlaneBulletAltitude(index), PlayerPosX, PlayerPosY, PlayerAltitude, 8) then
-			ExplodePlane()
+			HandlePlayerHit()
 		end if
 	end if
 	if LauncherBulletActive(index) then
 		if CheckCollision(LauncherBulletPosX(index), LauncherBulletPosY(index), LauncherBulletAltitude(index), PlayerPosX, PlayerPosY, PlayerAltitude, 8) then		
-			ExplodePlane()
+			HandlePlayerHit()
 		end if
 	end if
 	if TankShellActive(index) then
 		if CheckCollision(GroundUnitPosX(index), GroundUnitPosY(index), 0, PlayerPosX, PlayerPosY, PlayerAltitude, 8) then	
-			ExplodePlane()
+			HandlePlayerHit()
 		end if
 	end if
 	if EnemyJetMissileActive then
 		if CheckCollision(EnemyJetMissilePosX, EnemyJetMissilePosY, EnemyMissileAltitude, PlayerPosX, PlayerPosY, PlayerAltitude, 8) then		
-			ExplodePlane()
+			HandlePlayerHit()
 		end if
 	end if
 end sub
@@ -845,7 +844,7 @@ sub CheckEnemyPlaneCollision()
 	if 	CheckCollision(EnemyPlanePosX, EnemyPlanePosY, EnemyPlaneAltitude, PlayerPosX, PlayerPosY, PlayerAltitude, 16) then
 		RemoveEnemyPlane()
 		RemoveEnemyOrdnance()
-		ExplodePlane()
+		HandlePlayerHit()
 	end if
 end sub
 
@@ -854,7 +853,7 @@ sub CheckEnemyJetCollision()
 	if 	CheckCollision(EnemyJetPosX, EnemyJetPosY, EnemyJetAltitude, PlayerPosX, PlayerPosY, PlayerAltitude, 16) then
 		RemoveEnemyJet()
 		RemoveEnemyOrdnance()
-		ExplodePlane()
+		HandlePlayerHit()
 	end if
 end sub
 
@@ -871,24 +870,26 @@ sub CheckGroundCollision()
 	' L2GroundAttribute function.
 	dim ground as ubyte = L2GroundAttribute(PlayerPosX + 8 - 32, PlayerPosY - PlayerAltitude - 56, ScrollPosX, ScrollPosY, Layer2Bank)
 	if Level = 1 then
-		if ground = 24 or ground = 16 or ground = 108 or ground = 12 ExplodePlane()
-	else if ground = 30 or ground = 12 ExplodePlane()
+		if ground = 24 or ground = 16 or ground = 108 or ground = 12 HandlePlayerHit()
+	else if ground = 30 or ground = 12 HandlePlayerHit()
 end sub
 
-
-sub ExplodePlane()
-	' Remove plane shadow
+' Player has been hit.
+sub HandlePlayerHit()	
+	' Some sprites need to be removed when the player has been hit
 	RemoveSprite(PlayerShadowSprite,0)
-	' Remove bomb
 	RemoveSprite(BombCrossHairsSprite,0)
 	RemoveSprite(BombSprite,0)
 	BombActive = 0
+	RemoveEnemyOrdnance()
+	
+	' Initialize the player explosion cycle
 	PlayerHit = 1
 	PlayerExplosionCycle = 0
-	AYFX_Play(PlayerExplosionSound)
-	RemoveEnemyOrdnance()
+	AYFX_Play(PlayerExplosionSound)	
 end sub
 
+' Check if a player bullet has hit something.
 sub CheckBulletHit()
 		for i = 0 TO NumberOfBullets - 1
 			if BulletActive(i) = 1 then
@@ -920,7 +921,9 @@ sub RemoveBullet(index as ubyte)
 	RemoveSprite(PlayerBulletSprite + index, 0)
 end sub
 
+' Initialize a player plane.
 sub RestartPlayer()
+	' Remove any enemy sprites
 	RemoveEnemyPlane()
 	RemoveEnemyJet()
 	RemoveEnemyOrdnance()
@@ -949,6 +952,7 @@ sub RestartPlayer()
 	next counter
 end sub
 
+' When a life has been lost, handle game over or next life.
 sub LifeLost()
 	Lives = Lives - 1
 
@@ -974,10 +978,9 @@ sub LifeLost()
 	end if
 end sub
 
+' Prepare a new game.
 sub PrepareGame()
-	
 	Score = 0
-	LevelCounter = 0
 	Lives = NumberOfLives
 	PrintScore(Score)
 	PrintLives(Lives)
@@ -988,6 +991,7 @@ sub PrepareGame()
 	SetupBackground(TileMapBank, TileSpritesBank)
 end sub
 
+' Display the game start screen.
 sub StartScreen()
 	dim selection as uinteger = 0
 
@@ -1019,18 +1023,20 @@ sub StartScreen()
 	cls
 end sub
 
+' Handle player input.
+' The parameter is a byte that is defined by the ReadKeys function in Input.bas
 sub HandleKeys(inputByte as ubyte)
 	if  CheckBit(inputByte, 3)
 		if PlayerPosX < PlayerPosXMax and PlayerPosY < PlayerPosYMax then
 			PlayerPosX = PlayerPosX + 1
 			PlayerPosY = PlayerPosY + 0.5
-			if PlayerAltitude = 0 then ExplodePlane()
+			if PlayerAltitude = 0 then HandlePlayerHit()
 		end if
 	else if CheckBit(inputByte, 2)
 		if PlayerPosX > PlayerPosXMin and PlayerPosY - PlayerAltitude > PlayerPosYMin then
 			PlayerPosX = PlayerPosX - 1
 			PlayerPosY = PlayerPosY - 0.5
-			if PlayerAltitude = 0 then ExplodePlane()
+			if PlayerAltitude = 0 then HandlePlayerHit()
 		endif
 	end if
 	if CheckBit(inputByte, 4) and PlayerAltitude <= PlayerMaxAltitude and PlayerPosY - PlayerAltitude > PlayerPosYMin 
@@ -1063,9 +1069,8 @@ end sub
 '       Routines for background management
 ' ----------------------------------------------
 
+' Scroll the background diagonally top-down and right-left.
 sub ScrollBackground(planePosX as uinteger, mapBank as ubyte, TileSpritesBank as ubyte)
-
-	LevelCounter = LevelCounter + 1
 
 	' Scroll background
 	ScrollPosX = ScrollPosX + 1
@@ -1076,14 +1081,13 @@ sub ScrollBackground(planePosX as uinteger, mapBank as ubyte, TileSpritesBank as
 
 	ScrollLayer(ScrollPosX, ScrollPosY)
 
-	' Paint ground targets
+	' Update ground units (tanks). Note that active tanks (status = 1) are displayed from the tile map,
+	' but when they have been hit (status > 1), a sprite is painted on the background.
 	for i = 0 to NumberOfGroundUnits - 1
 		if GroundUnitStatus(i) > 0 then
 			GroundUnitPosX(i) = GroundUnitPosX(i) - 1
 			GroundUnitPosY(i) = GroundUnitPosY(i) + 1
-			if GroundUnitStatus(i) = 1 then
-				UpdateSprite(GroundUnitPosX(i), GroundUnitPosY(i), GroundUnitSprite + i, GroundUnitActiveImage, 0, 0)
-			else if GroundUnitStatus(i) = 2
+			if GroundUnitStatus(i) = 2
 				UpdateSprite(GroundUnitPosX(i), GroundUnitPosY(i), GroundUnitSprite + i, GroundUnitDamagedImage , 0, 0)
 				GroundUnitStatus(i) = GroundUnitStatus(i) + 1
 			else if GroundUnitStatus(i) = 3
