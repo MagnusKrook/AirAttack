@@ -84,7 +84,7 @@
 #define EnemyPlaneBulletSpriteHigher 110
 
 ' Other constants
-#define Layer2Bank 95
+#define Layer2Bank 60
 #define NumberOfEnemyPlaneBullets 4
 #define NumberOfEnemyMissiles 1
 #define NumberOfGroundUnits 5
