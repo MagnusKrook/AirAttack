@@ -982,6 +982,8 @@ end sub
 sub PrepareGame()
 	Score = 0
 	Lives = NumberOfLives
+	Level = 1
+	PrepareLevel()
 	PrintScore(Score)
 	PrintLives(Lives)
 	PrintHighScore(HighScore)
