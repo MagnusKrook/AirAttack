@@ -1501,7 +1501,6 @@ sub PrepareLevel()
 	' Map MMU0 to ROM.
 	NextReg(MMU0_0000_NR_50,$FF)
 
-	Pause 0
 end sub
 
 
