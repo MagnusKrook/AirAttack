@@ -1,6 +1,8 @@
 # About the game
 AirAttack is a diagonal scrolling game for the ZX Spectrum Next, written in [Boriel Basic](https://zxbasic.readthedocs.io/en/docs/) using [NextBuildStudio](https://wiki.specnext.dev/NextBuildStudio:Main_Page).
 
+Update 2026-11-08: Building with NextBuild Studio v10 causes the RND() function to return a fixed number, which makes the enemies extremely passive. So, for now stick with v7. 
+
 This is not a finished game but it is playable.
 
 # Gameplay
